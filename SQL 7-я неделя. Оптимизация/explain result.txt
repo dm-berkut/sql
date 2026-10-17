@@ -1,0 +1,35 @@
+"QUERY PLAN"
+Sort  (cost=2307040.65..2307112.19 rows=28617 width=127)
+  Sort Key: advanced_metrics.total_revenue DESC
+  ->  Subquery Scan on advanced_metrics  (cost=10327.05..2303063.83 rows=28617 width=127)
+        Filter: ((advanced_metrics.total_revenue > advanced_metrics.avg_route_revenue) AND (advanced_metrics.sold_tickets < (advanced_metrics.max_seats / 2)))
+        ->  WindowAgg  (cost=10327.05..2298127.42 rows=257552 width=95)
+              Window: w1 AS (PARTITION BY fm.route_no)
+              ->  Subquery Scan on fm  (cost=10022.62..67083.22 rows=257552 width=59)
+                    ->  GroupAggregate  (cost=10022.62..64507.70 rows=257552 width=59)
+"                          Group Key: r.route_no, f.flight_id, (date(f.scheduled_departure)), r.airplane_code"
+                          ->  Incremental Sort  (cost=10022.62..56781.14 rows=257552 width=38)
+"                                Sort Key: r.route_no, f.flight_id, (date(f.scheduled_departure)), r.airplane_code"
+                                Presorted Key: r.route_no
+                                ->  Nested Loop  (cost=9994.03..43999.53 rows=257552 width=38)
+                                      ->  Gather Merge  (cost=9993.59..23535.15 rows=1266 width=23)
+                                            Workers Planned: 1
+                                            ->  Merge Join  (cost=8993.58..22392.71 rows=745 width=23)
+                                                  Merge Cond: (f.route_no = r.route_no)
+                                                  Join Filter: (r.validity @> f.scheduled_departure)
+                                                  ->  Sort  (cost=8334.61..8517.14 rows=73011 width=19)
+                                                        Sort Key: f.route_no
+                                                        ->  Parallel Seq Scan on flights f  (cost=0.00..2436.85 rows=73011 width=19)
+"                                                              Filter: (status = ANY ('{Departed,Arrived}'::text[]))"
+                                                  ->  Sort  (cost=658.71..676.82 rows=7242 width=33)
+                                                        Sort Key: r.route_no
+                                                        ->  Seq Scan on routes r  (cost=0.00..194.42 rows=7242 width=33)
+                                      ->  Index Scan using segments_flight_id_idx on segments s  (cost=0.44..12.82 rows=284 width=23)
+                                            Index Cond: (flight_id = f.flight_id)
+              SubPlan 1
+                ->  Aggregate  (cost=8.64..8.65 rows=1 width=8)
+                      ->  Index Only Scan using seats_pkey on seats st  (cost=0.28..8.09 rows=218 width=0)
+                            Index Cond: (airplane_code = fm.airplane_code)
+JIT:
+  Functions: 36
+"  Options: Inlining true, Optimization true, Expressions true, Deforming true"
